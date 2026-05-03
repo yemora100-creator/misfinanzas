@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presupuesto Pro - Datos Persistentes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prop-types/15.8.1/prop-types.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.10.3/Recharts.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .glass-nav { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(12px); }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-slide-up { animation: slideUp 0.4s ease-out; }
+        @keyframes pulse-red {
+            0%, 100% { background-color: #ef4444; }
+            50% { background-color: #f87171; }
+        }
+        .bg-alert-pulse { animation: pulse-red 2s infinite; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            onAuthStateChanged, 
+            signInAnonymously,
+            signInWithCustomToken
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            collection, 
+            onSnapshot, 
+            addDoc, 
+            deleteDoc, 
+            serverTimestamp 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const { useState, useEffect, useMemo } = React;
+
+        // Configuración de Firebase proporcionada por el entorno
+        const firebaseConfig = JSON.parse(window.__firebase_config || '{}');
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'presupuesto-v2-final';
+
+        const Icons = {
+            Dashboard: () => React.createElement('svg', {width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2.5}, 
+                React.createElement('rect', {x: 3, y: 3, width: 7, height: 9}),
+                React.createElement('rect', {x: 14, y: 3, width: 7, height: 5}),
+                React.createElement('rect', {x: 14, y: 12, width: 7, height: 9}),
+                React.createElement('rect', {x: 3, y: 16, width: 7, height: 5})
+            ),
+            Plus: () => React.createElement('svg', {width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2.5}, 
+                React.createElement('path', {d: "M12 5v14M5 12h14"})
+            ),
+            Chart: () => React.createElement('svg', {width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2.5}, 
+                React.createElement('path', {d: "M21.21 15.89A10 10 0 1 1 8 2.83"}),
+                React.createElement('path', {d: "M22 12A10 10 0 0 0 12 2v10z"})
+            ),
+            Wallet: () => React.createElement('svg', {width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2.5}, 
+                React.createElement('path', {d: "M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"}),
+                React.createElement('path', {d: "M4 6v12c0 1.1.9 2 2 2h14v-4"}),
+                React.createElement('path', {d: "M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"})
+            ),
+            Alert: () => React.createElement('svg', {width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2.5},
+                React.createElement('path', {d: "M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"}),
+                React.createElement('line', {x1: 12, y1: 9, x2: 12, y2: 13}),
+                React.createElement('line', {x1: 12, y1: 17, x2: 12.01, y2: 17})
+            )
+        };
+
+        function App() {
+            const [user, setUser] = useState(null);
+            const [view, setView] = useState('dashboard');
+            const [incomeList, setIncomeList] = useState([]);
+            const [expenses, setExpenses] = useState([]);
+            const [loading, setLoading] = useState(true);
+
+            // REGLA 3: Autenticación antes de cualquier consulta
+            useEffect(() => {
+                const initAuth = async () => {
+                    try {
+                        if (typeof window.__initial_auth_token !== 'undefined' && window.__initial_auth_token) {
+                            await signInWithCustomToken(auth, window.__initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (e) {
+                        console.error("Auth Error:", e);
+                    }
+                };
+                initAuth();
+                const unsubscribe = onAuthStateChanged(auth, (u) => {
+                    setUser(u);
+                    setLoading(false);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            // REGLA 1 y 2: Rutas estrictas y consultas simples
+            useEffect(() => {
+                if (!user) return;
+
+                // Escuchar ingresos
+                const qIncomes = collection(db, 'artifacts', appId, 'users', user.uid, 'incomes');
+                const unsubIncome = onSnapshot(qIncomes, (snap) => {
+                    setIncomeList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+                }, (err) => console.error("Error cargando ingresos:", err));
+
+                // Escuchar gastos
+                const qExpenses = collection(db, 'artifacts', appId, 'users', user.uid, 'expenses');
+                const unsubExpenses = onSnapshot(qExpenses, (snap) => {
+                    setExpenses(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+                }, (err) => console.error("Error cargando gastos:", err));
+
+                return () => { unsubIncome(); unsubExpenses(); };
+            }, [user]);
+
+            const totalIncome = useMemo(() => incomeList.reduce((acc, curr) => acc + Number(curr.amount), 0), [incomeList]);
+
+            const totals = useMemo(() => {
+                const catTotals = { Necesidad: 0, Ocio: 0, Ahorro: 0 };
+                expenses.forEach(e => { if (catTotals[e.category] !== undefined) catTotals[e.category] += Number(e.amount); });
+                const totalSpent = catTotals.Necesidad + catTotals.Ocio + catTotals.Ahorro;
+                return { ...catTotals, totalSpent };
+            }, [expenses]);
+
+            const handleAddIncome = async (data) => {
+                if (!user) return;
+                await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'incomes'), { 
+                    ...data, 
+                    createdAt: serverTimestamp() 
+                });
+            };
+
+            const handleAddExpense = async (data) => {
+                if (!user) return;
+                await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'expenses'), { 
+                    ...data, 
+                    createdAt: serverTimestamp() 
+                });
+                setView('dashboard');
+            };
+
+            const handleDelete = async (type, id) => {
+                if (!user) return;
+                await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, type, id));
+            };
+
+            if (loading) return React.createElement('div', {className: "h-screen flex items-center justify-center font-black text-indigo-600 uppercase"}, "Sincronizando...");
+
+            return React.createElement('div', {className: "max-w-md mx-auto p-4 pb-28 min-h-screen"},
+                React.createElement('header', {className: "flex justify-between items-center py-6"},
+                    React.createElement('div', null,
+                        React.createElement('h1', {className: "text-2xl font-black text-slate-900 tracking-tighter uppercase"}, "Control 50/30/20"),
+                        React.createElement('p', {className: "text-[10px] font-bold text-slate-400 uppercase tracking-widest"}, `ID: ${user?.uid.slice(0,8)}...`)
+                    )
+                ),
+
+                React.createElement('div', {className: "animate-slide-up"},
+                    view === 'dashboard' && React.createElement(Dashboard, { totalIncome, totals }),
+                    view === 'add-expense' && React.createElement(ExpenseForm, { onSave: handleAddExpense, onCancel: () => setView('dashboard'), totals, totalIncome }),
+                    view === 'incomes' && React.createElement(IncomeManager, { incomeList, totalIncome, onAdd: handleAddIncome, onDelete: (id) => handleDelete('incomes', id) }),
+                    view === 'analysis' && React.createElement(Analysis, { totals, expenses, onDelete: (id) => handleDelete('expenses', id) })
+                ),
+
+                React.createElement('nav', {className: "fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] glass-nav rounded-[2rem] p-2 flex justify-around items-center shadow-2xl z-50 border border-slate-700/50"},
+                    React.createElement(NavBtn, { active: view === 'dashboard', onClick: () => setView('dashboard'), icon: React.createElement(Icons.Dashboard), label: "Inicio" }),
+                    React.createElement(NavBtn, { active: view === 'incomes', onClick: () => setView('incomes'), icon: React.createElement(Icons.Wallet), label: "Ingresos" }),
+                    React.createElement(NavBtn, { active: view === 'add-expense', onClick: () => setView('add-expense'), icon: React.createElement(Icons.Plus), label: "Gasto" }),
+                    React.createElement(NavBtn, { active: view === 'analysis', onClick: () => setView('analysis'), icon: React.createElement(Icons.Chart), label: "Historial" })
+                )
+            );
+        }
+
+        // --- Componentes de UI ---
+
+        function Dashboard({ totalIncome, totals }) {
+            return React.createElement('div', {className: "space-y-4 font-bold"},
+                React.createElement('div', {className: "bg-indigo-600 p-8 rounded-[2.5rem] text-white shadow-xl"},
+                    React.createElement('p', {className: "text-[9px] font-black uppercase opacity-60 mb-2"}, "Total Acumulado"),
+                    React.createElement('h2', {className: "text-5xl font-black tracking-tighter text-white"}, `$${totalIncome.toLocaleString()}`)
+                ),
+                React.createElement(StatCard, { label: "Necesidades (50%)", amount: totals.Necesidad, goal: totalIncome * 0.5, color: "bg-indigo-500" }),
+                React.createElement(StatCard, { label: "Ocio (30%)", amount: totals.Ocio, goal: totalIncome * 0.3, color: "bg-orange-400" }),
+                React.createElement(StatCard, { label: "Ahorro (20%)", amount: totals.Ahorro, goal: totalIncome * 0.2, color: "bg-emerald-500" })
+            );
+        }
+
+        function StatCard({ label, amount, goal, color }) {
+            const perc = goal > 0 ? Math.round((amount / goal) * 100) : 0;
+            return React.createElement('div', {className: "bg-white p-6 rounded-[2rem] border-2 border-slate-50"},
+                React.createElement('div', {className: "flex justify-between mb-4"},
+                    React.createElement('div', null,
+                        React.createElement('h4', {className: "text-[10px] font-black text-slate-400 uppercase mb-1"}, label),
+                        React.createElement('p', {className: "text-2xl font-black text-slate-800"}, `$${amount.toLocaleString()}`)
+                    ),
+                    React.createElement('p', {className: "text-xs font-black text-slate-400"}, `${perc}%`)
+                ),
+                React.createElement('div', {className: "h-2 bg-slate-100 rounded-full overflow-hidden"},
+                    React.createElement('div', {className: `h-full ${color}`, style: {width: `${Math.min(perc, 100)}%`}})
+                )
+            );
+        }
+
+        function IncomeManager({ incomeList, totalIncome, onAdd, onDelete }) {
+            const [data, setData] = useState({ description: '', amount: '', date: new Date().toISOString().split('T')[0] });
+            return React.createElement('div', {className: "space-y-6"},
+                React.createElement('div', {className: "bg-white p-6 rounded-[2.5rem] border-2 border-emerald-100"},
+                    React.createElement('h3', {className: "text-xs font-black uppercase mb-4"}, "Añadir Ingreso"),
+                    React.createElement('div', {className: "space-y-3"},
+                        React.createElement('input', {placeholder: "Origen (ej. Turno Mañana)", value: data.description, onChange: e => setData({...data, description: e.target.value}), className: "w-full p-3 bg-slate-50 rounded-xl outline-none text-xs uppercase font-bold"}),
+                        React.createElement('input', {type: "number", placeholder: "Monto $", value: data.amount, onChange: e => setData({...data, amount: e.target.value}), className: "w-full p-3 bg-slate-50 rounded-xl outline-none text-xl font-black"}),
+                        React.createElement('button', {onClick: () => { if(data.amount) { onAdd(data); setData({...data, description: '', amount: ''}); } }, className: "w-full py-3 bg-emerald-500 text-white rounded-xl font-black uppercase text-[10px]"}, "Guardar Ingreso")
+                    )
+                ),
+                React.createElement('div', {className: "space-y-2"},
+                    incomeList.map(item => React.createElement('div', {key: item.id, className: "bg-white p-4 rounded-xl flex justify-between items-center"},
+                        React.createElement('div', null,
+                            React.createElement('p', {className: "text-[10px] font-black uppercase"}, item.description || "Ingreso"),
+                            React.createElement('p', {className: "text-[8px] text-slate-400"}, item.date)
+                        ),
+                        React.createElement('div', {className: "flex items-center gap-3"},
+                            React.createElement('span', {className: "font-black text-emerald-600"}, `$${Number(item.amount).toLocaleString()}`),
+                            React.createElement('button', {onClick: () => onDelete(item.id), className: "text-slate-300 hover:text-red-500"}, "✕")
+                        )
+                    ))
+                )
+            );
+        }
+
+        function ExpenseForm({ onSave, onCancel }) {
+            const [data, setData] = useState({ name: '', amount: '', category: 'Necesidad', date: new Date().toISOString().split('T')[0] });
+            return React.createElement('div', {className: "bg-white p-8 rounded-[2.5rem] shadow-2xl space-y-4"},
+                React.createElement('h2', {className: "text-center font-black uppercase"}, "Nuevo Gasto"),
+                React.createElement('input', {placeholder: "¿En qué gastaste?", value: data.name, onChange: e => setData({...data, name: e.target.value}), className: "w-full p-4 bg-slate-50 rounded-xl outline-none font-bold uppercase text-xs"}),
+                React.createElement('input', {type: "number", placeholder: "Monto $", value: data.amount, onChange: e => setData({...data, amount: e.target.value}), className: "w-full p-4 bg-slate-50 rounded-xl outline-none font-black text-2xl"}),
+                React.createElement('div', {className: "grid grid-cols-3 gap-2"},
+                    ['Necesidad', 'Ocio', 'Ahorro'].map(c => React.createElement('button', {
+                        key: c, type: "button", onClick: () => setData({...data, category: c}),
+                        className: `py-2 rounded-lg text-[8px] font-black uppercase ${data.category === c ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400'}`
+                    }, c))
+                ),
+                React.createElement('div', {className: "flex gap-3 pt-4"},
+                    React.createElement('button', {onClick: onCancel, className: "flex-1 text-[10px] font-black text-slate-300 uppercase"}, "Cancelar"),
+                    React.createElement('button', {onClick: () => { if(data.amount && data.name) onSave(data); }, className: "flex-2 py-4 bg-indigo-600 text-white rounded-xl font-black uppercase text-[10px]"}, "Registrar")
+                )
+            );
+        }
+
+        function Analysis({ totals, expenses, onDelete }) {
+            return React.createElement('div', {className: "space-y-4"},
+                React.createElement('h3', {className: "text-[10px] font-black text-slate-400 uppercase tracking-widest"}, "Historial de Gastos"),
+                expenses.map(e => React.createElement('div', {key: e.id, className: "bg-white p-4 rounded-xl flex justify-between items-center"},
+                    React.createElement('div', null,
+                        React.createElement('p', {className: "text-[10px] font-black uppercase"}, e.name),
+                        React.createElement('p', {className: "text-[8px] font-bold text-indigo-400 uppercase"}, e.category)
+                    ),
+                    React.createElement('div', {className: "flex items-center gap-3"},
+                        React.createElement('span', {className: "font-black"}, `$${Number(e.amount).toLocaleString()}`),
+                        React.createElement('button', {onClick: () => onDelete(e.id), className: "text-slate-200 hover:text-red-400"}, "✕")
+                    )
+                ))
+            );
+        }
+
+        function NavBtn({ active, onClick, icon, label }) {
+            return React.createElement('button', {onClick, className: `flex flex-col items-center gap-1 p-3 transition-all ${active ? 'text-indigo-400' : 'text-slate-500'}`},
+                icon, React.createElement('span', {className: "text-[8px] font-black uppercase tracking-tighter"}, label)
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+    </script>
+</body>
+</html>
