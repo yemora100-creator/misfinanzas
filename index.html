@@ -3,17 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Presupuesto Pro - Mentor de Ahorro</title>
+    <title>Presupuesto Pro - Finanzas Inteligentes</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-        .glass-nav { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(12px); }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f8fafc; 
+            -webkit-tap-highlight-color: transparent;
+        }
+        .glass-nav { 
+            background: rgba(15, 23, 42, 0.98); 
+            backdrop-filter: blur(20px); 
+        }
         .animate-slide-up { animation: slideUp 0.4s ease-out; }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        input, button, select { font-size: 16px !important; }
+        .nav-text { font-size: 10px !important; letter-spacing: 0.05em; font-weight: 800; }
+        .category-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
     </style>
 </head>
 <body>
@@ -21,20 +31,23 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, collection, onSnapshot, addDoc, deleteDoc, serverTimestamp, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { 
+            getAuth, 
+            onAuthStateChanged, 
+            signOut, 
+            signInAnonymously, 
+            signInWithCustomToken,
+            GoogleAuthProvider,
+            signInWithPopup,
+            signInWithEmailAndPassword,
+            createUserWithEmailAndPassword
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, collection, onSnapshot, addDoc, deleteDoc, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const { useState, useEffect, useMemo } = React;
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAa3q8bjV6MlX5bohw-CHxBAPhLWmkroto",
-            authDomain: "mis-finanzas-app-bc5f2.firebaseapp.com",
-            projectId: "mis-finanzas-app-bc5f2",
-            storageBucket: "mis-finanzas-app-bc5f2.firebasestorage.app",
-            messagingSenderId: "77457349019",
-            appId: "1:77457349019:web:adc015006b0945325fe93e"
-        };
-
+        // --- CONFIGURACIÓN E INFRAESTRUCTURA ---
+        const firebaseConfig = JSON.parse(__firebase_config);
         const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'presupuesto-pro';
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -46,83 +59,94 @@
             'Ahorro': ['Inversión', 'Fondo Emergencia', 'Ahorro Retiro']
         };
 
+        // --- UTILIDADES ---
         const UTILS = {
-            formatCurrency: (amount) => `$${Number(amount).toLocaleString('es-ES')}`,
-            formatDate: (val) => {
-                if (!val) return "Sin fecha";
-                const d = typeof val === 'string' ? new Date(val + 'T12:00:00') : (val.toDate ? val.toDate() : new Date(val));
-                return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-            },
+            formatCurrency: (val) => `$${Number(val).toLocaleString('es-ES')}`,
             toMonthKey: (date) => {
                 const d = new Date(date);
                 return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            },
+            formatFriendlyDate: (val) => {
+                if (!val) return "";
+                const d = typeof val === 'string' ? new Date(val + 'T12:00:00') : (val.toDate ? val.toDate() : new Date(val));
+                return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
             }
         };
 
+        // --- HOOKS PERSONALIZADOS ---
         function useAuth() {
             const [user, setUser] = useState(null);
             const [loading, setLoading] = useState(true);
+            const [authError, setAuthError] = useState(null);
 
             useEffect(() => {
                 const initAuth = async () => {
-                    try {
-                        // Intentar autenticación con token si existe
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            try {
-                                await signInWithCustomToken(auth, __initial_auth_token);
-                            } catch (tokenError) {
-                                // Error específico de token: ignorar e intentar anónimo
-                                console.warn("Custom token failed, switching to anonymous...");
-                                await signInAnonymously(auth);
-                            }
-                        } else {
-                            await signInAnonymously(auth);
-                        }
-                    } catch (error) {
-                        console.error("Critical auth error:", error);
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        try { await signInWithCustomToken(auth, __initial_auth_token); } catch (e) { console.error(e); }
                     }
                 };
-
                 initAuth();
-                const unsubscribe = onAuthStateChanged(auth, (u) => { 
+                return onAuthStateChanged(auth, (u) => { 
                     setUser(u); 
                     setLoading(false); 
                 });
-                return () => unsubscribe();
             }, []);
 
-            return { user, loading };
+            const loginGoogle = async () => {
+                const provider = new GoogleAuthProvider();
+                try {
+                    setAuthError(null);
+                    await signInWithPopup(auth, provider);
+                } catch (e) {
+                    setAuthError("Error al conectar con Google");
+                }
+            };
+
+            const loginEmail = async (email, password, isRegister) => {
+                try {
+                    setAuthError(null);
+                    if (isRegister) {
+                        await createUserWithEmailAndPassword(auth, email, password);
+                    } else {
+                        await signInWithEmailAndPassword(auth, email, password);
+                    }
+                } catch (e) {
+                    setAuthError(isRegister ? "Error al crear cuenta" : "Correo o contraseña incorrectos");
+                }
+            };
+
+            return { user, loading, authError, loginGoogle, loginEmail, setAuthError };
         }
 
         function useFinance(user, monthKey) {
-            const [data, setData] = useState({ incomes: [], expenses: [], config: DEFAULT_SUBS });
-            
+            const [raw, setRaw] = useState({ incomes: [], expenses: [], config: DEFAULT_SUBS });
+
             useEffect(() => {
                 if (!user) return;
+                const userPath = ['artifacts', APP_ID, 'users', user.uid];
+                
+                const unsubIncomes = onSnapshot(collection(db, ...userPath, 'ingresos'), s => 
+                    setRaw(p => ({...p, incomes: s.docs.map(d => ({id: d.id, ...d.data()}))})),
+                    (e) => console.error(e)
+                );
+                const unsubExpenses = onSnapshot(collection(db, ...userPath, 'gastos'), s => 
+                    setRaw(p => ({...p, expenses: s.docs.map(d => ({id: d.id, ...d.data()}))})),
+                    (e) => console.error(e)
+                );
+                const unsubConfig = onSnapshot(doc(db, ...userPath, 'config', 'subcategories'), d => {
+                    if (d.exists()) setRaw(p => ({...p, config: d.data().mapping}));
+                }, (e) => console.error(e));
 
-                const incomesPath = collection(db, 'artifacts', APP_ID, 'users', user.uid, 'ingresos');
-                const expensesPath = collection(db, 'artifacts', APP_ID, 'users', user.uid, 'gastos');
-                const configDoc = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'config', 'subcategories');
-
-                const unsubs = [
-                    onSnapshot(incomesPath, s => {
-                        setData(p => ({...p, incomes: s.docs.map(d => ({id: d.id, ...d.data()}))}));
-                    }, err => console.error("Error incomes:", err)),
-                    onSnapshot(expensesPath, s => {
-                        setData(p => ({...p, expenses: s.docs.map(d => ({id: d.id, ...d.data()}))}));
-                    }, err => console.error("Error expenses:", err)),
-                    onSnapshot(configDoc, d => {
-                        if (d.exists()) setData(p => ({...p, config: d.data().mapping}));
-                    }, err => console.error("Error config:", err))
-                ];
-
-                return () => unsubs.forEach(fn => fn());
+                return () => { unsubIncomes(); unsubExpenses(); unsubConfig(); };
             }, [user]);
 
             const filtered = useMemo(() => {
-                const filter = (item) => UTILS.toMonthKey(item.date || new Date()) === monthKey;
-                return { incomes: data.incomes.filter(filter), expenses: data.expenses.filter(filter) };
-            }, [data, monthKey]);
+                const filterFn = (i) => UTILS.toMonthKey(i.date || new Date()) === monthKey;
+                return { 
+                    incomes: raw.incomes.filter(filterFn), 
+                    expenses: raw.expenses.filter(filterFn) 
+                };
+            }, [raw, monthKey]);
 
             const totals = useMemo(() => {
                 const inc = filtered.incomes.reduce((a, b) => a + Number(b.amount), 0);
@@ -130,273 +154,371 @@
                     a[b.category] = (a[b.category] || 0) + Number(b.amount);
                     return a;
                 }, { Necesidad: 0, Ocio: 0, Ahorro: 0 });
-                const exp = cats.Necesidad + cats.Ocio + cats.Ahorro;
-                return { income: inc, expense: exp, balance: inc - exp, ...cats };
+                const exp = (cats.Necesidad || 0) + (cats.Ocio || 0) + (cats.Ahorro || 0);
+                return { totalIncome: inc, totalExpense: exp, balance: inc - exp, ...cats };
             }, [filtered]);
 
-            return { data: filtered, totals, config: data.config, actions: {
-                save: async (colName, item) => {
+            const actions = {
+                add: (col, item) => {
                     if (!user) return;
-                    await addDoc(collection(db, 'artifacts', APP_ID, 'users', user.uid, colName), { 
-                        ...item, 
-                        createdAt: serverTimestamp() 
-                    });
+                    return addDoc(collection(db, 'artifacts', APP_ID, 'users', user.uid, col), { ...item, createdAt: serverTimestamp() });
                 },
-                delete: async (colName, id) => {
+                remove: (col, id) => {
                     if (!user) return;
-                    await deleteDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, colName, id));
+                    return deleteDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, col, id));
                 },
-                updateSubs: async (mapping) => {
+                updateConfig: (mapping) => {
                     if (!user) return;
-                    await setDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'config', 'subcategories'), { mapping });
+                    return setDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'config', 'subcategories'), { mapping });
                 }
-            }};
+            };
+
+            return { data: filtered, totals, config: raw.config, actions };
         }
 
-        const Card = ({ children, className = "" }) => React.createElement('div', { className: `bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 ${className}` }, children);
-        
-        const Button = ({ children, variant = "primary", className = "", ...props }) => {
-            const styles = {
-                primary: "bg-indigo-600 text-white shadow-lg shadow-indigo-200",
-                secondary: "bg-slate-100 text-slate-500",
-                ghost: "text-slate-400 font-bold",
-                danger: "bg-red-500 text-white shadow-lg shadow-red-100"
-            };
-            return React.createElement('button', { ...props, className: `py-4 px-6 rounded-2xl font-black uppercase text-[10px] transition-all active:scale-95 ${styles[variant]} ${className}` }, children);
-        };
-
-        const InputField = ({ label, ...props }) => React.createElement('div', { className: "w-full space-y-1" },
-            label && React.createElement('label', { className: "text-[10px] uppercase font-black text-slate-400 ml-2" }, label),
-            React.createElement('input', { ...props, className: "w-full p-4 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-indigo-500 font-bold text-slate-800" })
+        // --- COMPONENTES ÁTOMOS ---
+        const Card = ({ children, className = "" }) => (
+            React.createElement('div', { className: `bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 ${className}` }, children)
         );
 
-        const ProgressBlock = ({ label, amount, totalIncome, colorClass }) => {
-            const isSavingCategory = label.includes('Ahorro');
-            const percentage = label.includes('50') ? 0.5 : label.includes('30') ? 0.3 : 0.2;
-            const idealBudget = totalIncome * percentage;
-            const diff = idealBudget - amount;
-            const isOver = !isSavingCategory && diff < 0; 
-            const isUnderSaving = isSavingCategory && amount < idealBudget;
-            const hasZeroSaving = isSavingCategory && amount === 0 && totalIncome > 0;
-            const progressPerc = idealBudget > 0 ? Math.min((amount / idealBudget) * 100, 100) : 0;
-
-            const getStatusData = () => {
-                if (hasZeroSaving) return { title: "CRÍTICO: SIN AHORRO", advice: "No has destinado nada al ahorro este mes.", type: "danger", icon: "🚨" };
-                if (isUnderSaving) return { title: "OBJETIVO INCOMPLETO", advice: `Te faltan ${UTILS.formatCurrency(diff)} para tu meta.`, type: "warning", icon: "📉" };
-                if (isOver) return { title: "PRESUPUESTO EXCEDIDO", advice: "Revisa tus gastos, estás superando el límite.", type: "danger", icon: "⚠️" };
-                return { title: isSavingCategory ? "META ALCANZADA" : "BAJO CONTROL", advice: "Vas por buen camino.", type: "success", icon: "✅" };
+        const Button = ({ children, variant = "primary", className = "", icon, ...props }) => {
+            const themes = {
+                primary: "bg-indigo-600 text-white shadow-md",
+                secondary: "bg-slate-100 text-slate-600",
+                danger: "bg-red-500 text-white",
+                success: "bg-emerald-600 text-white",
+                outline: "border-2 border-slate-200 text-slate-600 bg-white"
             };
-
-            const status = getStatusData();
-            const typeStyles = {
-                danger: "bg-red-50 border-red-100 text-red-600",
-                warning: "bg-amber-50 border-amber-100 text-amber-600",
-                success: "bg-emerald-50 border-emerald-100 text-emerald-600"
-            };
-
-            return React.createElement(Card, { className: "mb-4 overflow-hidden" },
-                React.createElement('div', { className: "flex justify-between mb-2 items-end" },
-                    React.createElement('div', null,
-                        React.createElement('span', { className: "text-[10px] uppercase text-slate-400 font-black block" }, label),
-                        React.createElement('span', { className: "text-[8px] text-slate-400" }, `Objetivo: ${UTILS.formatCurrency(idealBudget)}`)
-                    ),
-                    React.createElement('div', { className: "text-right" },
-                        React.createElement('p', { className: "text-sm text-slate-800 font-black" }, UTILS.formatCurrency(amount))
-                    )
-                ),
-                React.createElement('div', { className: "h-2 bg-slate-100 rounded-full overflow-hidden mb-3" },
-                    React.createElement('div', { 
-                        className: `h-full ${hasZeroSaving ? 'bg-slate-200' : isOver ? 'bg-red-500' : isUnderSaving ? 'bg-amber-400' : colorClass} transition-all duration-1000`, 
-                        style: { width: `${progressPerc}%` } 
-                    })
-                ),
-                React.createElement('div', { className: `p-3 rounded-xl flex items-start gap-2 border ${typeStyles[status.type]}` },
-                    React.createElement('span', { className: "text-xs" }, status.icon),
-                    React.createElement('div', null,
-                        React.createElement('p', { className: "text-[9px] font-black uppercase" }, status.title),
-                        React.createElement('p', { className: "text-[9px] text-slate-600 leading-tight mt-1" }, status.advice)
-                    )
-                )
+            return React.createElement('button', { 
+                ...props, 
+                className: `flex items-center justify-center gap-3 py-4 px-6 rounded-2xl font-bold uppercase text-[10px] tracking-widest transition-all active:scale-95 ${themes[variant]} ${className}` 
+            }, 
+                icon && React.createElement('span', { className: "text-base" }, icon),
+                children
             );
         };
 
-        const FinancialSummary = ({ totals }) => React.createElement('div', { className: "bg-indigo-600 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden animate-slide-up" },
-            React.createElement('div', { className: "absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-3xl" }),
-            React.createElement('p', { className: "text-[9px] uppercase opacity-60 mb-1 font-black tracking-widest" }, "Saldo Disponible"),
-            React.createElement('h2', { className: "text-5xl font-black tracking-tighter" }, UTILS.formatCurrency(totals.balance)),
-            React.createElement('div', { className: "mt-6 pt-6 border-t border-white/10 flex justify-between" },
-                [['Ingresos', totals.income], ['Gastos', totals.expense]].map(([l, v]) => React.createElement('div', { key: l },
-                    React.createElement('p', { className: "text-[8px] uppercase opacity-50 font-black" }, l),
-                    React.createElement('p', { className: "font-bold text-sm" }, UTILS.formatCurrency(v))
-                ))
+        const Input = ({ label, ...props }) => (
+            React.createElement('div', { className: "w-full space-y-2" },
+                label && React.createElement('label', { className: "text-[10px] uppercase font-black text-slate-400 ml-1" }, label),
+                React.createElement('input', { ...props, className: "w-full p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-indigo-500 outline-none font-bold text-slate-800" })
             )
         );
 
-        const Dashboard = ({ totals }) => React.createElement('div', { className: "space-y-4" },
-            React.createElement(FinancialSummary, { totals }),
-            React.createElement(ProgressBlock, { label: "Necesidad (50%)", amount: totals.Necesidad, totalIncome: totals.income, colorClass: "bg-indigo-500" }),
-            React.createElement(ProgressBlock, { label: "Ocio (30%)", amount: totals.Ocio, totalIncome: totals.income, colorClass: "bg-orange-400" }),
-            React.createElement(ProgressBlock, { label: "Ahorro (20%)", amount: totals.Ahorro, totalIncome: totals.income, colorClass: "bg-emerald-500" })
-        );
-
-        const IncomeView = ({ incomes, onAdd, onDelete }) => {
-            const [form, setForm] = useState({ description: '', amount: '', date: new Date().toISOString().split('T')[0] });
-            return React.createElement('div', { className: "space-y-4 animate-slide-up" },
-                React.createElement(Card, { className: "space-y-3" },
-                    React.createElement(InputField, { label: "Fuente", value: form.description, onChange: e => setForm({...form, description: e.target.value}) }),
-                    React.createElement(InputField, { label: "Monto", type: "number", className: "text-emerald-600", value: form.amount, onChange: e => setForm({...form, amount: e.target.value}) }),
-                    React.createElement(InputField, { label: "Fecha", type: "date", value: form.date, onChange: e => setForm({...form, date: e.target.value}) }),
-                    React.createElement(Button, { className: "w-full bg-emerald-500", onClick: () => { if(form.description && form.amount) { onAdd(form); setForm({ ...form, amount: '', description: '' }); } } }, "Añadir Ingreso")
-                ),
-                incomes.map(i => React.createElement(ItemRow, { key: i.id, title: i.description, amount: i.amount, date: i.date, color: "text-emerald-600", onDelete: () => onDelete(i.id) }))
+        const Alert = ({ type, title, message }) => {
+            const variants = {
+                danger: "bg-red-50 text-red-700 border-red-100",
+                warning: "bg-amber-50 text-amber-700 border-amber-100",
+                success: "bg-emerald-50 text-emerald-700 border-emerald-100",
+                info: "bg-blue-50 text-blue-700 border-blue-100"
+            };
+            return React.createElement('div', { className: `p-4 rounded-2xl border flex flex-col gap-1 mt-4 animate-slide-up ${variants[type]}` },
+                React.createElement('p', { className: "text-[10px] font-black uppercase" }, title),
+                React.createElement('p', { className: "text-[11px] font-medium leading-tight opacity-80" }, message)
             );
         };
 
-        const SubCategoryEditor = ({ category, subs, onUpdate, onClose }) => {
-            const [newSub, setNewSub] = useState('');
-            return React.createElement('div', { className: "fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 z-[100]" },
-                React.createElement(Card, { className: "w-full max-w-sm" },
-                    React.createElement('div', { className: "flex justify-between items-center mb-6" },
-                        React.createElement('h3', { className: "text-[10px] font-black uppercase text-indigo-600" }, `Editar ${category}`),
-                        React.createElement('button', { onClick: onClose, className: "text-slate-300" }, "✕")
+        // --- VISTA DE LOGIN ---
+        const LoginView = ({ onGoogle, onEmail, error }) => {
+            const [isRegister, setIsRegister] = useState(false);
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+
+            return React.createElement('div', { className: "min-h-screen flex flex-col justify-center p-8 animate-slide-up" },
+                React.createElement('div', { className: "mb-12 text-center" },
+                    React.createElement('div', { className: "w-20 h-20 bg-indigo-600 rounded-[2rem] flex items-center justify-center text-white text-4xl mb-6 mx-auto shadow-xl shadow-indigo-200" }, "💰"),
+                    React.createElement('h1', { className: "text-3xl font-black text-slate-900 tracking-tighter" }, "Presupuesto Pro"),
+                    React.createElement('p', { className: "text-slate-400 font-bold text-sm mt-2" }, "Toma el control total de tu dinero")
+                ),
+
+                React.createElement('div', { className: "space-y-4" },
+                    React.createElement(Input, { label: "Correo Electrónico", type: "email", value: email, onChange: e => setEmail(e.target.value), placeholder: "tu@correo.com" }),
+                    React.createElement(Input, { label: "Contraseña", type: "password", value: password, onChange: e => setPassword(e.target.value), placeholder: "••••••••" }),
+                    
+                    error && React.createElement(Alert, { type: "danger", title: "Atención", message: error }),
+
+                    React.createElement(Button, { 
+                        className: "w-full mt-4", 
+                        onClick: () => onEmail(email, password, isRegister) 
+                    }, isRegister ? "Crear Cuenta" : "Iniciar Sesión"),
+
+                    React.createElement('div', { className: "flex items-center gap-4 py-4" },
+                        React.createElement('div', { className: "h-[1px] flex-1 bg-slate-200" }),
+                        React.createElement('span', { className: "text-[10px] font-black text-slate-300 uppercase" }, "o continua con"),
+                        React.createElement('div', { className: "h-[1px] flex-1 bg-slate-200" })
                     ),
-                    React.createElement('div', { className: "space-y-2 max-h-60 overflow-y-auto no-scrollbar mb-6" },
-                        subs.map(s => React.createElement('div', { key: s, className: "flex justify-between items-center bg-slate-50 p-3 rounded-xl" },
-                            React.createElement('span', { className: "text-[10px] font-black uppercase text-slate-600" }, s),
-                            React.createElement('button', { onClick: () => onUpdate(subs.filter(x => x !== s)), className: "text-red-400 text-xs" }, "✕")
-                        ))
-                    ),
-                    React.createElement('div', { className: "flex gap-2" },
-                        React.createElement('input', { 
-                            placeholder: "Nueva subcat...", value: newSub, 
-                            onChange: e => setNewSub(e.target.value),
-                            className: "flex-1 bg-slate-100 p-3 rounded-xl outline-none text-[10px] font-black uppercase"
-                        }),
-                        React.createElement(Button, { 
-                            className: "py-3 px-4", 
-                            onClick: () => { if(newSub && !subs.includes(newSub)) { onUpdate([...subs, newSub]); setNewSub(''); } }
-                        }, "+")
-                    )
+
+                    React.createElement(Button, { 
+                        variant: "outline", 
+                        className: "w-full border-2", 
+                        onClick: onGoogle,
+                        icon: "🌐"
+                    }, "Google"),
+
+                    React.createElement('button', { 
+                        onClick: () => setIsRegister(!isRegister),
+                        className: "w-full text-center text-[10px] font-black text-indigo-500 uppercase mt-4 tracking-widest"
+                    }, isRegister ? "¿Ya tienes cuenta? Inicia sesión" : "¿No tienes cuenta? Regístrate")
                 )
             );
         };
 
-        const ExpenseView = ({ config, onSave, onCancel, onUpdateMapping }) => {
-            const [f, setF] = useState({ name: '', amount: '', category: 'Necesidad', subCategory: '', date: new Date().toISOString().split('T')[0] });
-            const [editingCategory, setEditingCategory] = useState(null);
+        // --- COMPONENTES DE SECCIÓN ---
+        const MetricCard = ({ label, amount, total, color, percentage }) => {
+            const limit = total * percentage;
+            const isSaving = label.toLowerCase().includes('ahorro');
+            const ratio = limit > 0 ? (amount / limit) : 0;
+            
+            let status = { type: 'success', title: 'Todo en orden', msg: 'Estás dentro del presupuesto.' };
+            if (isSaving) {
+                if (total === 0) status = { type: 'info', title: 'Inicia', msg: 'Registra ingresos para ver tu meta.' };
+                else if (amount < limit) status = { type: 'warning', title: 'Meta pendiente', msg: `Te faltan ${UTILS.formatCurrency(limit - amount)}.` };
+            } else if (total > 0 && amount > limit) {
+                status = { type: 'danger', title: 'Exceso detectado', msg: 'Has superado el límite sugerido.' };
+            }
 
-            useEffect(() => { 
-                if(!config[f.category].includes(f.subCategory)) {
-                    setF(p => ({...p, subCategory: config[p.category][0] || ''})); 
+            return React.createElement(Card, { className: "mb-4 animate-slide-up" },
+                React.createElement('div', { className: "flex justify-between items-end mb-3" },
+                    React.createElement('div', null,
+                        React.createElement('p', { className: "text-[10px] font-black text-slate-400 uppercase" }, label),
+                        React.createElement('p', { className: "text-[10px] text-slate-300 font-bold" }, `Meta: ${UTILS.formatCurrency(limit)}`)
+                    ),
+                    React.createElement('p', { className: "text-lg font-black text-slate-900" }, UTILS.formatCurrency(amount))
+                ),
+                React.createElement('div', { className: "h-2 bg-slate-100 rounded-full overflow-hidden" },
+                    React.createElement('div', { 
+                        className: `h-full transition-all duration-700 ${status.type === 'danger' ? 'bg-red-500' : color}`, 
+                        style: { width: `${Math.min(ratio * 100, 100)}%` } 
+                    })
+                ),
+                React.createElement(Alert, { type: status.type, title: status.title, message: status.msg })
+            );
+        };
+
+        const ItemRow = ({ title, subtitle, amount, color = "text-slate-900", onRemove }) => (
+            React.createElement('div', { className: "bg-white p-5 rounded-3xl flex justify-between items-center border border-slate-50 mb-3 shadow-sm" },
+                React.createElement('div', null,
+                    React.createElement('p', { className: "text-sm font-bold text-slate-800" }, title),
+                    React.createElement('p', { className: "text-[10px] font-black uppercase text-slate-300" }, subtitle)
+                ),
+                React.createElement('div', { className: "flex items-center gap-4" },
+                    React.createElement('span', { className: `text-sm font-black ${color}` }, UTILS.formatCurrency(amount)),
+                    onRemove && React.createElement('button', { onClick: onRemove, className: "text-slate-200 hover:text-red-300" }, "✕")
+                )
+            )
+        );
+
+        // --- VISTAS PRINCIPALES ---
+        const Dashboard = ({ totals }) => (
+            React.createElement('div', { className: "space-y-4" },
+                React.createElement('div', { className: "bg-indigo-600 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden mb-6" },
+                    React.createElement('p', { className: "text-[10px] uppercase font-black opacity-60 mb-1" }, "Balance Disponible"),
+                    React.createElement('h2', { className: "text-5xl font-black tracking-tighter" }, UTILS.formatCurrency(totals.balance)),
+                    React.createElement('div', { className: "mt-8 pt-6 border-t border-white/10 flex justify-between" },
+                        React.createElement('div', null,
+                            React.createElement('p', { className: "text-[9px] uppercase font-black opacity-40" }, "Ingresos"),
+                            React.createElement('p', { className: "font-bold text-emerald-300" }, UTILS.formatCurrency(totals.totalIncome))
+                        ),
+                        React.createElement('div', { className: "text-right" },
+                            React.createElement('p', { className: "text-[9px] uppercase font-black opacity-40" }, "Gastos"),
+                            React.createElement('p', { className: "font-bold text-red-200" }, UTILS.formatCurrency(totals.totalExpense))
+                        )
+                    )
+                ),
+                React.createElement(MetricCard, { label: "Necesidades (50%)", amount: totals.Necesidad || 0, total: totals.totalIncome, color: "bg-indigo-500", percentage: 0.5 }),
+                React.createElement(MetricCard, { label: "Deseos y Ocio (30%)", amount: totals.Ocio || 0, total: totals.totalIncome, color: "bg-orange-400", percentage: 0.3 }),
+                React.createElement(MetricCard, { label: "Ahorro e Inv. (20%)", amount: totals.Ahorro || 0, total: totals.totalIncome, color: "bg-emerald-500", percentage: 0.2 })
+            )
+        );
+
+        const IncomeView = ({ incomes, onAdd, onRemove }) => {
+            const [form, setForm] = useState({ description: '', amount: '', date: new Date().toISOString().split('T')[0] });
+            const handleAdd = () => {
+                if (form.description && form.amount) {
+                    onAdd(form);
+                    setForm(p => ({ ...p, description: '', amount: '' }));
+                }
+            };
+            return React.createElement('div', { className: "space-y-4 animate-slide-up" },
+                React.createElement(Card, { className: "space-y-4" },
+                    React.createElement(Input, { label: "Origen", placeholder: "Ej. Salario", value: form.description, onChange: e => setForm({...form, description: e.target.value}) }),
+                    React.createElement(Input, { label: "Cantidad", type: "number", value: form.amount, onChange: e => setForm({...form, amount: e.target.value}) }),
+                    React.createElement(Input, { label: "Fecha", type: "date", value: form.date, onChange: e => setForm({...form, date: e.target.value}) }),
+                    React.createElement(Button, { className: "w-full", variant: "success", onClick: handleAdd }, "Registrar Ingreso")
+                ),
+                incomes.length === 0 ? 
+                    React.createElement('p', { className: "text-center text-slate-400 font-bold text-xs p-10" }, "No hay ingresos este mes") :
+                    incomes.map(i => React.createElement(ItemRow, { 
+                        key: i.id, title: i.description, subtitle: UTILS.formatFriendlyDate(i.date), 
+                        amount: i.amount, color: "text-emerald-600", onRemove: () => onRemove(i.id) 
+                    }))
+            );
+        };
+
+        const ExpenseView = ({ config, onAdd }) => {
+            const [f, setF] = useState({ name: '', amount: '', category: 'Necesidad', subCategory: '', date: new Date().toISOString().split('T')[0] });
+            
+            useEffect(() => {
+                if (config[f.category] && !config[f.category].includes(f.subCategory)) {
+                    setF(p => ({ ...p, subCategory: config[f.category][0] || '' }));
                 }
             }, [f.category, config]);
 
-            return React.createElement('div', null,
-                React.createElement(Card, { className: "animate-slide-up space-y-4" },
-                    React.createElement(InputField, { label: "Descripción", value: f.name, onChange: e => setF({...f, name: e.target.value}) }),
-                    React.createElement(InputField, { label: "Monto", type: "number", className: "text-indigo-600", value: f.amount, onChange: e => setF({...f, amount: e.target.value}) }),
-                    React.createElement(InputField, { label: "Fecha", type: "date", value: f.date, onChange: e => setF({...f, date: e.target.value}) }),
-                    React.createElement('div', null,
-                        React.createElement('label', { className: "text-[10px] uppercase font-black text-slate-400 mb-2 block" }, "Categoría"),
-                        React.createElement('div', { className: "grid grid-cols-3 gap-2" },
-                            Object.keys(config).map(c => React.createElement('button', { 
-                                key: c, onClick: () => setF({...f, category: c}),
-                                className: `py-3 rounded-xl text-[8px] font-black uppercase transition-all ${f.category === c ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-400'}`
-                            }, c))
-                        )
-                    ),
-                    React.createElement('div', null,
-                        React.createElement('div', { className: "flex justify-between items-center mb-2" },
-                            React.createElement('label', { className: "text-[10px] uppercase font-black text-slate-400" }, "Subcategoría"),
-                            React.createElement('button', { 
-                                onClick: () => setEditingCategory(f.category),
-                                className: "text-[8px] font-black uppercase text-indigo-500 bg-indigo-50 px-2 py-1 rounded-md"
-                            }, "✏️ Editar")
-                        ),
-                        React.createElement('div', { className: "flex flex-wrap gap-2" },
-                            config[f.category].map(sc => React.createElement('button', { 
-                                key: sc, onClick: () => setF({...f, subCategory: sc}),
-                                className: `px-4 py-2 rounded-full text-[8px] font-black uppercase border transition-all ${f.subCategory === sc ? 'bg-slate-900 text-white' : 'bg-white text-slate-400'}`
-                            }, sc))
-                        )
-                    ),
-                    React.createElement('div', { className: "flex gap-2 pt-4" },
-                        React.createElement(Button, { variant: "ghost", className: "flex-1", onClick: onCancel }, "Cancelar"),
-                        React.createElement(Button, { className: "flex-[2]", onClick: () => f.name && f.amount && onSave(f) }, "Guardar")
-                    )
+            return React.createElement(Card, { className: "space-y-6 animate-slide-up" },
+                React.createElement(Input, { label: "Descripción", value: f.name, onChange: e => setF({...f, name: e.target.value}) }),
+                React.createElement(Input, { label: "Monto", type: "number", value: f.amount, onChange: e => setF({...f, amount: e.target.value}) }),
+                React.createElement(Input, { label: "Fecha", type: "date", value: f.date, onChange: e => setF({...f, date: e.target.value}) }),
+                React.createElement('div', { className: "grid grid-cols-3 gap-2" },
+                    Object.keys(config).map(c => React.createElement('button', {
+                        key: c, onClick: () => setF({...f, category: c}),
+                        className: `py-3 rounded-xl text-[9px] font-black uppercase border-2 transition-all ${f.category === c ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-100 text-slate-400'}`
+                    }, c))
                 ),
-                editingCategory && React.createElement(SubCategoryEditor, {
-                    category: editingCategory,
-                    subs: config[editingCategory],
-                    onClose: () => setEditingCategory(null),
-                    onUpdate: (newSubs) => onUpdateMapping({ ...config, [editingCategory]: newSubs })
-                })
+                React.createElement('div', { className: "flex flex-wrap gap-2" },
+                    (config[f.category] || []).map(sc => React.createElement('button', {
+                        key: sc, onClick: () => setF({...f, subCategory: sc}),
+                        className: `px-4 py-2 rounded-xl text-[9px] font-bold border-2 transition-all ${f.subCategory === sc ? 'bg-slate-900 border-slate-900 text-white' : 'bg-slate-50 border-transparent text-slate-400'}`
+                    }, sc))
+                ),
+                React.createElement(Button, { className: "w-full", onClick: () => f.name && f.amount && onAdd(f) }, "Guardar Gasto")
             );
         };
 
-        const ItemRow = ({ title, subtitle, amount, date, color = "text-slate-900", onDelete }) => (
-            React.createElement('div', { className: "bg-white p-4 rounded-2xl flex justify-between items-center border border-slate-50 mb-2 shadow-sm" },
-                React.createElement('div', { className: "flex-1 truncate mr-4" },
-                    React.createElement('p', { className: "text-[10px] font-black uppercase truncate" }, title),
-                    React.createElement('div', { className: "flex gap-2 text-[8px] font-black uppercase" },
-                        subtitle && React.createElement('span', { className: "text-indigo-400" }, subtitle),
-                        React.createElement('span', { className: "text-slate-300" }, UTILS.formatDate(date))
+        const ExpenseMapView = ({ expenses }) => {
+            const grouped = useMemo(() => {
+                const map = {};
+                expenses.forEach(e => {
+                    if (!map[e.category]) map[e.category] = { total: 0, subs: {} };
+                    map[e.category].total += Number(e.amount);
+                    if (!map[e.category].subs[e.subCategory]) map[e.category].subs[e.subCategory] = 0;
+                    map[e.category].subs[e.subCategory] += Number(e.amount);
+                });
+                return map;
+            }, [expenses]);
+
+            const colors = { Necesidad: 'indigo', Ocio: 'orange', Ahorro: 'emerald' };
+
+            if (expenses.length === 0) return React.createElement('p', { className: "text-center text-slate-400 font-bold text-xs p-20" }, "Nada que mostrar este mes");
+
+            return React.createElement('div', { className: "space-y-6 animate-slide-up" },
+                Object.entries(grouped).map(([cat, data]) => (
+                    React.createElement(Card, { key: cat, className: "category-card" },
+                        React.createElement('div', { className: "flex justify-between items-baseline mb-4" },
+                            React.createElement('h3', { className: `text-base font-black uppercase text-${colors[cat]}-600 tracking-tight` }, cat),
+                            React.createElement('span', { className: "text-lg font-black text-slate-900" }, UTILS.formatCurrency(data.total))
+                        ),
+                        React.createElement('div', { className: "space-y-4" },
+                            Object.entries(data.subs).sort((a,b) => b[1] - a[1]).map(([sub, val]) => {
+                                const p = (val / data.total) * 100;
+                                return React.createElement('div', { key: sub },
+                                    React.createElement('div', { className: "flex justify-between text-[11px] font-bold uppercase mb-1.5" },
+                                        React.createElement('span', { className: "text-slate-400" }, sub),
+                                        React.createElement('span', { className: "text-slate-800" }, UTILS.formatCurrency(val))
+                                    ),
+                                    React.createElement('div', { className: "h-2 bg-slate-50 rounded-full overflow-hidden" },
+                                        React.createElement('div', { 
+                                            className: `h-full bg-${colors[cat]}-500 transition-all duration-1000`, 
+                                            style: { width: `${p}%` } 
+                                        })
+                                    )
+                                );
+                            })
+                        )
+                    )
+                ))
+            );
+        };
+
+        const ConfigView = ({ config, onUpdate }) => {
+            const [cat, setCat] = useState('Necesidad');
+            const [val, setVal] = useState('');
+
+            const add = () => {
+                if (!val.trim()) return;
+                onUpdate({ ...config, [cat]: [...(config[cat] || []), val.trim()] });
+                setVal('');
+            };
+
+            const del = (c, s) => {
+                if (config[c].length <= 1) return;
+                onUpdate({ ...config, [c]: config[c].filter(x => x !== s) });
+            };
+
+            return React.createElement('div', { className: "space-y-6 animate-slide-up" },
+                React.createElement(Card, { className: "space-y-4" },
+                    React.createElement('p', { className: "text-sm font-black uppercase text-slate-800" }, "Gestionar Categorías"),
+                    React.createElement('div', { className: "flex gap-2" },
+                        Object.keys(config).map(c => React.createElement('button', {
+                            key: c, onClick: () => setCat(c),
+                            className: `flex-1 py-3 rounded-xl text-[9px] font-black uppercase border-2 ${cat === c ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 border-transparent text-slate-400'}`
+                        }, c))
+                    ),
+                    React.createElement('div', { className: "flex gap-2" },
+                        React.createElement('input', { 
+                            className: "flex-1 p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm",
+                            placeholder: "Nueva subcategoría...", value: val, onChange: e => setVal(e.target.value)
+                        }),
+                        React.createElement('button', { onClick: add, className: "bg-indigo-600 text-white w-14 rounded-2xl font-black" }, "+")
                     )
                 ),
-                React.createElement('div', { className: "flex items-center gap-4" },
-                    React.createElement('span', { className: `font-black text-sm ${color}` }, UTILS.formatCurrency(amount)),
-                    React.createElement('button', { onClick: onDelete, className: "text-slate-200 hover:text-red-400" }, "✕")
-                )
-            )
-        );
+                Object.entries(config).map(([c, subs]) => React.createElement(Card, { key: c, className: "space-y-3" },
+                    React.createElement('p', { className: "text-[9px] font-black uppercase text-slate-300" }, c),
+                    React.createElement('div', { className: "flex flex-wrap gap-2" },
+                        subs.map(s => React.createElement('div', { key: s, className: "flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100" },
+                            React.createElement('span', { className: "text-[11px] font-bold text-slate-600" }, s),
+                            React.createElement('button', { onClick: () => del(c, s), className: "text-slate-300 hover:text-red-400 text-xs" }, "✕")
+                        ))
+                    )
+                ))
+            );
+        };
 
+        // --- COMPONENTE RAÍZ ---
         function App() {
-            const { user, loading } = useAuth();
+            const { user, loading, authError, loginGoogle, loginEmail } = useAuth();
             const [view, setView] = useState('dashboard');
             const [month, setMonth] = useState(UTILS.toMonthKey(new Date()));
             const { data, totals, config, actions } = useFinance(user, month);
 
-            if (loading) return React.createElement('div', { className: "h-screen flex items-center justify-center font-black text-indigo-600 animate-pulse uppercase" }, "Conectando...");
+            if (loading) return React.createElement('div', { className: "h-screen flex items-center justify-center font-black text-indigo-600 text-[10px] uppercase tracking-widest" }, "Cargando Presupuesto...");
 
-            return React.createElement('div', { className: "max-w-md mx-auto p-4 pb-28 min-h-screen" },
+            if (!user) return React.createElement(LoginView, { onGoogle: loginGoogle, onEmail: loginEmail, error: authError });
+
+            const views = {
+                dashboard: () => React.createElement(Dashboard, { totals }),
+                incomes: () => React.createElement(IncomeView, { incomes: data.incomes, onAdd: (f) => actions.add('ingresos', f), onRemove: (id) => actions.remove('ingresos', id) }),
+                add: () => React.createElement(ExpenseView, { config, onAdd: (f) => { actions.add('gastos', f); setView('dashboard'); } }),
+                config: () => React.createElement(ConfigView, { config, onUpdate: actions.updateConfig }),
+                map: () => React.createElement(ExpenseMapView, { expenses: data.expenses })
+            };
+
+            return React.createElement('div', { className: "max-w-md mx-auto p-6 pb-32 min-h-screen" },
                 React.createElement('header', { className: "flex justify-between items-center py-6" },
-                    React.createElement('h1', { className: "text-2xl font-black text-slate-900 uppercase tracking-tighter" }, "Finanzas Pro"),
-                    React.createElement('button', { onClick: () => signOut(auth), className: "text-[9px] font-black text-slate-400 bg-slate-100 px-3 py-1 rounded-full uppercase" }, "Cerrar")
+                    React.createElement('h1', { className: "text-xl font-black text-slate-900 uppercase tracking-tighter" }, "Presupuesto Pro"),
+                    React.createElement('button', { onClick: () => signOut(auth), className: "text-[9px] font-black text-slate-300 uppercase hover:text-slate-500 transition-colors" }, "Cerrar Sesión")
                 ),
 
-                React.createElement('select', { 
-                    value: month, onChange: e => setMonth(e.target.value),
-                    className: "w-full bg-white border border-slate-200 rounded-2xl p-4 mb-6 text-center font-black uppercase text-xs shadow-sm outline-none"
-                }, Array.from({length: 12}, (_, i) => {
-                    const d = new Date(); d.setMonth(d.getMonth() - i);
-                    const k = UTILS.toMonthKey(d);
-                    return React.createElement('option', { key: k, value: k }, d.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }));
-                })),
-
-                view === 'dashboard' && React.createElement(Dashboard, { totals }),
-                view === 'incomes' && React.createElement(IncomeView, { 
-                    incomes: data.incomes, 
-                    onAdd: (f) => actions.save('ingresos', f),
-                    onDelete: (id) => actions.delete('ingresos', id)
-                }),
-                view === 'add' && React.createElement(ExpenseView, { 
-                    config, onCancel: () => setView('dashboard'), 
-                    onUpdateMapping: actions.updateSubs,
-                    onSave: (f) => { actions.save('gastos', f); setView('dashboard'); }
-                }),
-                view === 'history' && React.createElement('div', { className: "animate-slide-up" }, 
-                    data.expenses.length === 0 ? React.createElement('p', { className: "text-center py-20 text-[10px] font-black text-slate-300 uppercase" }, "Sin movimientos") :
-                    data.expenses.sort((a,b) => new Date(b.date) - new Date(a.date)).map(e => React.createElement(ItemRow, { 
-                        key: e.id, title: e.name, subtitle: `${e.category} • ${e.subCategory}`, 
-                        amount: e.amount, date: e.date, onDelete: () => actions.delete('gastos', e.id)
+                React.createElement('div', { className: "mb-8 relative" },
+                    React.createElement('select', { 
+                        value: month, onChange: e => setMonth(e.target.value),
+                        className: "w-full bg-white border-2 border-slate-100 rounded-3xl p-5 font-black uppercase text-xs shadow-sm outline-none appearance-none text-center text-slate-800"
+                    }, Array.from({length: 12}, (_, i) => {
+                        const d = new Date(); d.setMonth(d.getMonth() - i);
+                        const k = UTILS.toMonthKey(d);
+                        return React.createElement('option', { key: k, value: k }, d.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }));
                     }))
                 ),
 
-                React.createElement('nav', { className: "fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] glass-nav rounded-[2rem] p-2 flex justify-around shadow-2xl z-50 border border-slate-700/50" },
-                    [['dashboard', '🏠', 'Inicio'], ['incomes', '💰', 'Ingresos'], ['add', '➕', 'Gasto'], ['history', '📊', 'Historial']].map(([v, i, l]) => (
-                        React.createElement('button', { key: v, onClick: () => setView(v), className: `flex flex-col items-center p-3 transition-all ${view === v ? 'text-indigo-400 scale-110' : 'text-slate-500 opacity-40'}` },
-                            React.createElement('span', { className: "text-xl" }, i),
-                            React.createElement('span', { className: "text-[8px] font-black uppercase" }, l)
+                views[view](),
+
+                React.createElement('nav', { className: "fixed bottom-8 left-1/2 -translate-x-1/2 w-[92%] glass-nav rounded-[2.5rem] p-2 flex justify-between shadow-2xl z-50 border border-slate-700/50" },
+                    [['dashboard', '🏠', 'Inicio'], ['incomes', '💰', 'Plus'], ['add', '➕', 'Gasto'], ['map', '🗺️', 'Mapa'], ['config', '⚙️', 'Editar']].map(([v, i, l]) => (
+                        React.createElement('button', { 
+                            key: v, onClick: () => setView(v), 
+                            className: `flex flex-col items-center flex-1 py-3 transition-all rounded-[1.8rem] ${view === v ? 'bg-white/10 text-indigo-300' : 'text-slate-500'}` 
+                        },
+                            React.createElement('span', { className: `text-xl mb-1 ${view === v ? 'scale-110' : 'opacity-60'}` }, i),
+                            React.createElement('span', { className: `nav-text ${view === v ? 'text-white' : 'text-slate-500'}` }, l)
                         )
                     ))
                 )
