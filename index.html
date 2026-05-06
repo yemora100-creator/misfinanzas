@@ -21,8 +21,10 @@
         .animate-slide-up { animation: slideUp 0.4s ease-out; }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         
-        input, button, select { font-size: 16px !important; }
-        .nav-text { font-size: 10px !important; letter-spacing: 0.05em; font-weight: 800; }
+        /* Aumentado de 16px a 18px */
+        input, button, select { font-size: 18px !important; }
+        /* Aumentado de 10px a 12px */
+        .nav-text { font-size: 12px !important; letter-spacing: 0.05em; font-weight: 800; }
         .category-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
     </style>
 </head>
@@ -199,16 +201,18 @@
             };
             return React.createElement('button', { 
                 ...props, 
-                className: `flex items-center justify-center gap-3 py-4 px-6 rounded-2xl font-bold uppercase text-[10px] tracking-widest transition-all active:scale-95 ${themes[variant]} ${className}` 
+                /* Aumentado de text-[10px] a text-[12px] */
+                className: `flex items-center justify-center gap-3 py-4 px-6 rounded-2xl font-bold uppercase text-[12px] tracking-widest transition-all active:scale-95 ${themes[variant]} ${className}` 
             }, 
-                icon && React.createElement('span', { className: "text-base" }, icon),
+                icon && React.createElement('span', { className: "text-lg" }, icon),
                 children
             );
         };
 
         const Input = ({ label, ...props }) => (
             React.createElement('div', { className: "w-full space-y-2" },
-                label && React.createElement('label', { className: "text-[10px] uppercase font-black text-slate-400 ml-1" }, label),
+                /* Aumentado de text-[10px] a text-[12px] */
+                label && React.createElement('label', { className: "text-[12px] uppercase font-black text-slate-400 ml-1" }, label),
                 React.createElement('input', { ...props, className: "w-full p-4 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-indigo-500 outline-none font-bold text-slate-800" })
             )
         );
@@ -221,8 +225,10 @@
                 info: "bg-blue-50 text-blue-700 border-blue-100"
             };
             return React.createElement('div', { className: `p-4 rounded-2xl border flex flex-col gap-1 mt-4 animate-slide-up ${variants[type]}` },
-                React.createElement('p', { className: "text-[10px] font-black uppercase" }, title),
-                React.createElement('p', { className: "text-[11px] font-medium leading-tight opacity-80" }, message)
+                /* Aumentado de text-[10px] a text-[12px] */
+                React.createElement('p', { className: "text-[12px] font-black uppercase" }, title),
+                /* Aumentado de text-[11px] a text-[13px] */
+                React.createElement('p', { className: "text-[13px] font-medium leading-tight opacity-80" }, message)
             );
         };
 
@@ -235,8 +241,10 @@
             return React.createElement('div', { className: "min-h-screen flex flex-col justify-center p-8 animate-slide-up" },
                 React.createElement('div', { className: "mb-12 text-center" },
                     React.createElement('div', { className: "w-20 h-20 bg-indigo-600 rounded-[2rem] flex items-center justify-center text-white text-4xl mb-6 mx-auto shadow-xl shadow-indigo-200" }, "💰"),
-                    React.createElement('h1', { className: "text-3xl font-black text-slate-900 tracking-tighter" }, "Presupuesto Pro"),
-                    React.createElement('p', { className: "text-slate-400 font-bold text-sm mt-2" }, "Toma el control total de tu dinero")
+                    /* Aumentado de text-3xl a text-4xl */
+                    React.createElement('h1', { className: "text-4xl font-black text-slate-900 tracking-tighter" }, "Presupuesto Pro"),
+                    /* Aumentado de text-sm a text-base */
+                    React.createElement('p', { className: "text-slate-400 font-bold text-base mt-2" }, "Toma el control total de tu dinero")
                 ),
 
                 React.createElement('div', { className: "space-y-4" },
@@ -252,7 +260,8 @@
 
                     React.createElement('div', { className: "flex items-center gap-4 py-4" },
                         React.createElement('div', { className: "h-[1px] flex-1 bg-slate-200" }),
-                        React.createElement('span', { className: "text-[10px] font-black text-slate-300 uppercase" }, "o continua con"),
+                        /* Aumentado de text-[10px] a text-[12px] */
+                        React.createElement('span', { className: "text-[12px] font-black text-slate-300 uppercase" }, "o continua con"),
                         React.createElement('div', { className: "h-[1px] flex-1 bg-slate-200" })
                     ),
 
@@ -265,7 +274,8 @@
 
                     React.createElement('button', { 
                         onClick: () => setIsRegister(!isRegister),
-                        className: "w-full text-center text-[10px] font-black text-indigo-500 uppercase mt-4 tracking-widest"
+                        /* Aumentado de text-[10px] a text-[12px] */
+                        className: "w-full text-center text-[12px] font-black text-indigo-500 uppercase mt-4 tracking-widest"
                     }, isRegister ? "¿Ya tienes cuenta? Inicia sesión" : "¿No tienes cuenta? Regístrate")
                 )
             );
@@ -288,10 +298,13 @@
             return React.createElement(Card, { className: "mb-4 animate-slide-up" },
                 React.createElement('div', { className: "flex justify-between items-end mb-3" },
                     React.createElement('div', null,
-                        React.createElement('p', { className: "text-[10px] font-black text-slate-400 uppercase" }, label),
-                        React.createElement('p', { className: "text-[10px] text-slate-300 font-bold" }, `Meta: ${UTILS.formatCurrency(limit)}`)
+                        /* Aumentado de text-[10px] a text-[12px] */
+                        React.createElement('p', { className: "text-[12px] font-black text-slate-400 uppercase" }, label),
+                        /* Aumentado de text-[10px] a text-[12px] */
+                        React.createElement('p', { className: "text-[12px] text-slate-300 font-bold" }, `Meta: ${UTILS.formatCurrency(limit)}`)
                     ),
-                    React.createElement('p', { className: "text-lg font-black text-slate-900" }, UTILS.formatCurrency(amount))
+                    /* Aumentado de text-lg a text-xl */
+                    React.createElement('p', { className: "text-xl font-black text-slate-900" }, UTILS.formatCurrency(amount))
                 ),
                 React.createElement('div', { className: "h-2 bg-slate-100 rounded-full overflow-hidden" },
                     React.createElement('div', { 
@@ -306,11 +319,14 @@
         const ItemRow = ({ title, subtitle, amount, color = "text-slate-900", onRemove }) => (
             React.createElement('div', { className: "bg-white p-5 rounded-3xl flex justify-between items-center border border-slate-50 mb-3 shadow-sm" },
                 React.createElement('div', null,
-                    React.createElement('p', { className: "text-sm font-bold text-slate-800" }, title),
-                    React.createElement('p', { className: "text-[10px] font-black uppercase text-slate-300" }, subtitle)
+                    /* Aumentado de text-sm a text-base */
+                    React.createElement('p', { className: "text-base font-bold text-slate-800" }, title),
+                    /* Aumentado de text-[10px] a text-[12px] */
+                    React.createElement('p', { className: "text-[12px] font-black uppercase text-slate-300" }, subtitle)
                 ),
                 React.createElement('div', { className: "flex items-center gap-4" },
-                    React.createElement('span', { className: `text-sm font-black ${color}` }, UTILS.formatCurrency(amount)),
+                    /* Aumentado de text-sm a text-base */
+                    React.createElement('span', { className: `text-base font-black ${color}` }, UTILS.formatCurrency(amount)),
                     onRemove && React.createElement('button', { onClick: onRemove, className: "text-slate-200 hover:text-red-300" }, "✕")
                 )
             )
@@ -320,16 +336,22 @@
         const Dashboard = ({ totals }) => (
             React.createElement('div', { className: "space-y-4" },
                 React.createElement('div', { className: "bg-indigo-600 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden mb-6" },
-                    React.createElement('p', { className: "text-[10px] uppercase font-black opacity-60 mb-1" }, "Balance Disponible"),
-                    React.createElement('h2', { className: "text-5xl font-black tracking-tighter" }, UTILS.formatCurrency(totals.balance)),
+                    /* Aumentado de text-[10px] a text-[12px] */
+                    React.createElement('p', { className: "text-[12px] uppercase font-black opacity-60 mb-1" }, "Balance Disponible"),
+                    /* Aumentado de text-5xl a text-6xl */
+                    React.createElement('h2', { className: "text-6xl font-black tracking-tighter" }, UTILS.formatCurrency(totals.balance)),
                     React.createElement('div', { className: "mt-8 pt-6 border-t border-white/10 flex justify-between" },
                         React.createElement('div', null,
-                            React.createElement('p', { className: "text-[9px] uppercase font-black opacity-40" }, "Ingresos"),
-                            React.createElement('p', { className: "font-bold text-emerald-300" }, UTILS.formatCurrency(totals.totalIncome))
+                            /* Aumentado de text-[9px] a text-[11px] */
+                            React.createElement('p', { className: "text-[11px] uppercase font-black opacity-40" }, "Ingresos"),
+                            /* Aumentado de text-base */
+                            React.createElement('p', { className: "font-bold text-emerald-300 text-lg" }, UTILS.formatCurrency(totals.totalIncome))
                         ),
                         React.createElement('div', { className: "text-right" },
-                            React.createElement('p', { className: "text-[9px] uppercase font-black opacity-40" }, "Gastos"),
-                            React.createElement('p', { className: "font-bold text-red-200" }, UTILS.formatCurrency(totals.totalExpense))
+                            /* Aumentado de text-[9px] a text-[11px] */
+                            React.createElement('p', { className: "text-[11px] uppercase font-black opacity-40" }, "Gastos"),
+                            /* Aumentado de text-base */
+                            React.createElement('p', { className: "font-bold text-red-200 text-lg" }, UTILS.formatCurrency(totals.totalExpense))
                         )
                     )
                 ),
@@ -355,7 +377,8 @@
                     React.createElement(Button, { className: "w-full", variant: "success", onClick: handleAdd }, "Registrar Ingreso")
                 ),
                 incomes.length === 0 ? 
-                    React.createElement('p', { className: "text-center text-slate-400 font-bold text-xs p-10" }, "No hay ingresos este mes") :
+                    /* Aumentado de text-xs a text-sm */
+                    React.createElement('p', { className: "text-center text-slate-400 font-bold text-sm p-10" }, "No hay ingresos este mes") :
                     incomes.map(i => React.createElement(ItemRow, { 
                         key: i.id, title: i.description, subtitle: UTILS.formatFriendlyDate(i.date), 
                         amount: i.amount, color: "text-emerald-600", onRemove: () => onRemove(i.id) 
@@ -377,15 +400,17 @@
                 React.createElement(Input, { label: "Monto", type: "number", value: f.amount, onChange: e => setF({...f, amount: e.target.value}) }),
                 React.createElement(Input, { label: "Fecha", type: "date", value: f.date, onChange: e => setF({...f, date: e.target.value}) }),
                 React.createElement('div', { className: "grid grid-cols-3 gap-2" },
+                    /* Aumentado de text-[9px] a text-[11px] */
                     Object.keys(config).map(c => React.createElement('button', {
                         key: c, onClick: () => setF({...f, category: c}),
-                        className: `py-3 rounded-xl text-[9px] font-black uppercase border-2 transition-all ${f.category === c ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-100 text-slate-400'}`
+                        className: `py-3 rounded-xl text-[11px] font-black uppercase border-2 transition-all ${f.category === c ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-100 text-slate-400'}`
                     }, c))
                 ),
                 React.createElement('div', { className: "flex flex-wrap gap-2" },
+                    /* Aumentado de text-[9px] a text-[11px] */
                     (config[f.category] || []).map(sc => React.createElement('button', {
                         key: sc, onClick: () => setF({...f, subCategory: sc}),
-                        className: `px-4 py-2 rounded-xl text-[9px] font-bold border-2 transition-all ${f.subCategory === sc ? 'bg-slate-900 border-slate-900 text-white' : 'bg-slate-50 border-transparent text-slate-400'}`
+                        className: `px-4 py-2 rounded-xl text-[11px] font-bold border-2 transition-all ${f.subCategory === sc ? 'bg-slate-900 border-slate-900 text-white' : 'bg-slate-50 border-transparent text-slate-400'}`
                     }, sc))
                 ),
                 React.createElement(Button, { className: "w-full", onClick: () => f.name && f.amount && onAdd(f) }, "Guardar Gasto")
@@ -406,20 +431,24 @@
 
             const colors = { Necesidad: 'indigo', Ocio: 'orange', Ahorro: 'emerald' };
 
-            if (expenses.length === 0) return React.createElement('p', { className: "text-center text-slate-400 font-bold text-xs p-20" }, "Nada que mostrar este mes");
+            /* Aumentado de text-xs a text-sm */
+            if (expenses.length === 0) return React.createElement('p', { className: "text-center text-slate-400 font-bold text-sm p-20" }, "Nada que mostrar este mes");
 
             return React.createElement('div', { className: "space-y-6 animate-slide-up" },
                 Object.entries(grouped).map(([cat, data]) => (
                     React.createElement(Card, { key: cat, className: "category-card" },
                         React.createElement('div', { className: "flex justify-between items-baseline mb-4" },
-                            React.createElement('h3', { className: `text-base font-black uppercase text-${colors[cat]}-600 tracking-tight` }, cat),
-                            React.createElement('span', { className: "text-lg font-black text-slate-900" }, UTILS.formatCurrency(data.total))
+                            /* Aumentado de text-base a text-lg */
+                            React.createElement('h3', { className: `text-lg font-black uppercase text-${colors[cat]}-600 tracking-tight` }, cat),
+                            /* Aumentado de text-lg a text-xl */
+                            React.createElement('span', { className: "text-xl font-black text-slate-900" }, UTILS.formatCurrency(data.total))
                         ),
                         React.createElement('div', { className: "space-y-4" },
                             Object.entries(data.subs).sort((a,b) => b[1] - a[1]).map(([sub, val]) => {
                                 const p = (val / data.total) * 100;
                                 return React.createElement('div', { key: sub },
-                                    React.createElement('div', { className: "flex justify-between text-[11px] font-bold uppercase mb-1.5" },
+                                    /* Aumentado de text-[11px] a text-[13px] */
+                                    React.createElement('div', { className: "flex justify-between text-[13px] font-bold uppercase mb-1.5" },
                                         React.createElement('span', { className: "text-slate-400" }, sub),
                                         React.createElement('span', { className: "text-slate-800" }, UTILS.formatCurrency(val))
                                     ),
@@ -454,26 +483,31 @@
 
             return React.createElement('div', { className: "space-y-6 animate-slide-up" },
                 React.createElement(Card, { className: "space-y-4" },
-                    React.createElement('p', { className: "text-sm font-black uppercase text-slate-800" }, "Gestionar Categorías"),
+                    /* Aumentado de text-sm a text-base */
+                    React.createElement('p', { className: "text-base font-black uppercase text-slate-800" }, "Gestionar Categorías"),
                     React.createElement('div', { className: "flex gap-2" },
+                        /* Aumentado de text-[9px] a text-[11px] */
                         Object.keys(config).map(c => React.createElement('button', {
                             key: c, onClick: () => setCat(c),
-                            className: `flex-1 py-3 rounded-xl text-[9px] font-black uppercase border-2 ${cat === c ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 border-transparent text-slate-400'}`
+                            className: `flex-1 py-3 rounded-xl text-[11px] font-black uppercase border-2 ${cat === c ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 border-transparent text-slate-400'}`
                         }, c))
                     ),
                     React.createElement('div', { className: "flex gap-2" },
+                        /* Aumentado de text-sm a text-base */
                         React.createElement('input', { 
-                            className: "flex-1 p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm",
+                            className: "flex-1 p-4 bg-slate-50 rounded-2xl outline-none font-bold text-base",
                             placeholder: "Nueva subcategoría...", value: val, onChange: e => setVal(e.target.value)
                         }),
                         React.createElement('button', { onClick: add, className: "bg-indigo-600 text-white w-14 rounded-2xl font-black" }, "+")
                     )
                 ),
                 Object.entries(config).map(([c, subs]) => React.createElement(Card, { key: c, className: "space-y-3" },
-                    React.createElement('p', { className: "text-[9px] font-black uppercase text-slate-300" }, c),
+                    /* Aumentado de text-[9px] a text-[11px] */
+                    React.createElement('p', { className: "text-[11px] font-black uppercase text-slate-300" }, c),
                     React.createElement('div', { className: "flex flex-wrap gap-2" },
                         subs.map(s => React.createElement('div', { key: s, className: "flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100" },
-                            React.createElement('span', { className: "text-[11px] font-bold text-slate-600" }, s),
+                            /* Aumentado de text-[11px] a text-[13px] */
+                            React.createElement('span', { className: "text-[13px] font-bold text-slate-600" }, s),
                             React.createElement('button', { onClick: () => del(c, s), className: "text-slate-300 hover:text-red-400 text-xs" }, "✕")
                         ))
                     )
@@ -488,7 +522,8 @@
             const [month, setMonth] = useState(UTILS.toMonthKey(new Date()));
             const { data, totals, config, actions } = useFinance(user, month);
 
-            if (loading) return React.createElement('div', { className: "h-screen flex items-center justify-center font-black text-indigo-600 text-[10px] uppercase tracking-widest" }, "Cargando Presupuesto...");
+            /* Aumentado de text-[10px] a text-[12px] */
+            if (loading) return React.createElement('div', { className: "h-screen flex items-center justify-center font-black text-indigo-600 text-[12px] uppercase tracking-widest" }, "Cargando Presupuesto...");
 
             if (!user) return React.createElement(LoginView, { onGoogle: loginGoogle, onEmail: loginEmail, error: authError });
 
@@ -502,14 +537,17 @@
 
             return React.createElement('div', { className: "max-w-md mx-auto p-6 pb-32 min-h-screen" },
                 React.createElement('header', { className: "flex justify-between items-center py-6" },
-                    React.createElement('h1', { className: "text-xl font-black text-slate-900 uppercase tracking-tighter" }, "Presupuesto Pro"),
-                    React.createElement('button', { onClick: () => signOut(auth), className: "text-[9px] font-black text-slate-300 uppercase hover:text-slate-500 transition-colors" }, "Cerrar Sesión")
+                    /* Aumentado de text-xl a text-2xl */
+                    React.createElement('h1', { className: "text-2xl font-black text-slate-900 uppercase tracking-tighter" }, "Presupuesto Pro"),
+                    /* Aumentado de text-[9px] a text-[11px] */
+                    React.createElement('button', { onClick: () => signOut(auth), className: "text-[11px] font-black text-slate-300 uppercase hover:text-slate-500 transition-colors" }, "Cerrar Sesión")
                 ),
 
                 React.createElement('div', { className: "mb-8 relative" },
                     React.createElement('select', { 
                         value: month, onChange: e => setMonth(e.target.value),
-                        className: "w-full bg-white border-2 border-slate-100 rounded-3xl p-5 font-black uppercase text-xs shadow-sm outline-none appearance-none text-center text-slate-800"
+                        /* Aumentado de text-xs a text-sm */
+                        className: "w-full bg-white border-2 border-slate-100 rounded-3xl p-5 font-black uppercase text-sm shadow-sm outline-none appearance-none text-center text-slate-800"
                     }, Array.from({length: 12}, (_, i) => {
                         const d = new Date(); d.setMonth(d.getMonth() - i);
                         const k = UTILS.toMonthKey(d);
@@ -525,7 +563,8 @@
                             key: v, onClick: () => setView(v), 
                             className: `flex flex-col items-center flex-1 py-3 transition-all rounded-[1.8rem] ${view === v ? 'bg-white/10 text-indigo-300' : 'text-slate-500'}` 
                         },
-                            React.createElement('span', { className: `text-xl mb-1 ${view === v ? 'scale-110' : 'opacity-60'}` }, i),
+                            /* Aumentado de text-xl a text-2xl */
+                            React.createElement('span', { className: `text-2xl mb-1 ${view === v ? 'scale-110' : 'opacity-60'}` }, i),
                             React.createElement('span', { className: `nav-text ${view === v ? 'text-white' : 'text-slate-500'}` }, l)
                         )
                     ))
