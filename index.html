@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -26,7 +26,15 @@
 
         const { useState, useEffect, useMemo } = React;
 
-        const firebaseConfig = JSON.parse(__firebase_config);
+        const firebaseConfig = {
+            apiKey: "AIzaSyAa3q8bjV6MlX5bohw-CHxBAPhLWmkroto",
+            authDomain: "mis-finanzas-app-bc5f2.firebaseapp.com",
+            projectId: "mis-finanzas-app-bc5f2",
+            storageBucket: "mis-finanzas-app-bc5f2.firebasestorage.app",
+            messagingSenderId: "77457349019",
+            appId: "1:77457349019:web:adc015006b0945325fe93e"
+        };
+
         const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'presupuesto-pro';
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -54,32 +62,60 @@
         function useAuth() {
             const [user, setUser] = useState(null);
             const [loading, setLoading] = useState(true);
+
             useEffect(() => {
-                const init = async () => {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
+                const initAuth = async () => {
+                    try {
+                        // Intentar autenticación con token si existe
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            try {
+                                await signInWithCustomToken(auth, __initial_auth_token);
+                            } catch (tokenError) {
+                                // Error específico de token: ignorar e intentar anónimo
+                                console.warn("Custom token failed, switching to anonymous...");
+                                await signInAnonymously(auth);
+                            }
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (error) {
+                        console.error("Critical auth error:", error);
                     }
                 };
-                init();
-                return onAuthStateChanged(auth, (u) => { setUser(u); setLoading(false); });
+
+                initAuth();
+                const unsubscribe = onAuthStateChanged(auth, (u) => { 
+                    setUser(u); 
+                    setLoading(false); 
+                });
+                return () => unsubscribe();
             }, []);
+
             return { user, loading };
         }
 
         function useFinance(user, monthKey) {
             const [data, setData] = useState({ incomes: [], expenses: [], config: DEFAULT_SUBS });
+            
             useEffect(() => {
                 if (!user) return;
-                const userPath = (col) => collection(db, 'artifacts', APP_ID, 'users', user.uid, col);
+
+                const incomesPath = collection(db, 'artifacts', APP_ID, 'users', user.uid, 'ingresos');
+                const expensesPath = collection(db, 'artifacts', APP_ID, 'users', user.uid, 'gastos');
+                const configDoc = doc(db, 'artifacts', APP_ID, 'users', user.uid, 'config', 'subcategories');
+
                 const unsubs = [
-                    onSnapshot(userPath('ingresos'), s => setData(p => ({...p, incomes: s.docs.map(d => ({id: d.id, ...d.data()}))}))),
-                    onSnapshot(userPath('gastos'), s => setData(p => ({...p, expenses: s.docs.map(d => ({id: d.id, ...d.data()}))}))),
-                    onSnapshot(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'config', 'subcategories'), d => {
+                    onSnapshot(incomesPath, s => {
+                        setData(p => ({...p, incomes: s.docs.map(d => ({id: d.id, ...d.data()}))}));
+                    }, err => console.error("Error incomes:", err)),
+                    onSnapshot(expensesPath, s => {
+                        setData(p => ({...p, expenses: s.docs.map(d => ({id: d.id, ...d.data()}))}));
+                    }, err => console.error("Error expenses:", err)),
+                    onSnapshot(configDoc, d => {
                         if (d.exists()) setData(p => ({...p, config: d.data().mapping}));
-                    })
+                    }, err => console.error("Error config:", err))
                 ];
+
                 return () => unsubs.forEach(fn => fn());
             }, [user]);
 
@@ -99,9 +135,21 @@
             }, [filtered]);
 
             return { data: filtered, totals, config: data.config, actions: {
-                save: (col, item) => addDoc(collection(db, 'artifacts', APP_ID, 'users', user.uid, col), { ...item, createdAt: serverTimestamp() }),
-                delete: (col, id) => deleteDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, col, id)),
-                updateSubs: (mapping) => setDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'config', 'subcategories'), { mapping })
+                save: async (colName, item) => {
+                    if (!user) return;
+                    await addDoc(collection(db, 'artifacts', APP_ID, 'users', user.uid, colName), { 
+                        ...item, 
+                        createdAt: serverTimestamp() 
+                    });
+                },
+                delete: async (colName, id) => {
+                    if (!user) return;
+                    await deleteDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, colName, id));
+                },
+                updateSubs: async (mapping) => {
+                    if (!user) return;
+                    await setDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'config', 'subcategories'), { mapping });
+                }
             }};
         }
 
@@ -127,18 +175,16 @@
             const percentage = label.includes('50') ? 0.5 : label.includes('30') ? 0.3 : 0.2;
             const idealBudget = totalIncome * percentage;
             const diff = idealBudget - amount;
-            
             const isOver = !isSavingCategory && diff < 0; 
             const isUnderSaving = isSavingCategory && amount < idealBudget;
             const hasZeroSaving = isSavingCategory && amount === 0 && totalIncome > 0;
-
             const progressPerc = idealBudget > 0 ? Math.min((amount / idealBudget) * 100, 100) : 0;
 
             const getStatusData = () => {
-                if (hasZeroSaving) return { title: "CRÍTICO: SIN AHORRO", advice: "No has destinado nada al ahorro este mes. Recuerda: 'Primero págate a ti mismo'.", type: "danger", icon: "🚨" };
-                if (isUnderSaving) return { title: "OBJETIVO INCOMPLETO", advice: `Te faltan ${UTILS.formatCurrency(diff)} para alcanzar tu meta de ahorro del 20%.`, type: "warning", icon: "📉" };
-                if (isOver) return { title: "PRESUPUESTO EXCEDIDO", advice: label.includes('Necesidad') ? "Revisa tus gastos fijos, estás superando el límite." : "Recorta un poco en salidas para recuperar el equilibrio.", type: "danger", icon: "⚠️" };
-                return { title: isSavingCategory ? "META ALCANZADA" : "BAJO CONTROL", advice: isSavingCategory ? "Excelente trabajo protegiendo tu futuro financiero." : "¡Vas por buen camino! Sigue manteniendo este nivel.", type: "success", icon: "✅" };
+                if (hasZeroSaving) return { title: "CRÍTICO: SIN AHORRO", advice: "No has destinado nada al ahorro este mes.", type: "danger", icon: "🚨" };
+                if (isUnderSaving) return { title: "OBJETIVO INCOMPLETO", advice: `Te faltan ${UTILS.formatCurrency(diff)} para tu meta.`, type: "warning", icon: "📉" };
+                if (isOver) return { title: "PRESUPUESTO EXCEDIDO", advice: "Revisa tus gastos, estás superando el límite.", type: "danger", icon: "⚠️" };
+                return { title: isSavingCategory ? "META ALCANZADA" : "BAJO CONTROL", advice: "Vas por buen camino.", type: "success", icon: "✅" };
             };
 
             const status = getStatusData();
@@ -155,9 +201,7 @@
                         React.createElement('span', { className: "text-[8px] text-slate-400" }, `Objetivo: ${UTILS.formatCurrency(idealBudget)}`)
                     ),
                     React.createElement('div', { className: "text-right" },
-                        React.createElement('p', { className: "text-sm text-slate-800 font-black" }, UTILS.formatCurrency(amount)),
-                        isOver && React.createElement('p', { className: "text-[9px] font-black text-red-500 animate-pulse" }, `Exceso: ${UTILS.formatCurrency(Math.abs(diff))}`),
-                        isUnderSaving && amount > 0 && React.createElement('p', { className: "text-[9px] font-black text-amber-500" }, `Faltan: ${UTILS.formatCurrency(diff)}`)
+                        React.createElement('p', { className: "text-sm text-slate-800 font-black" }, UTILS.formatCurrency(amount))
                     )
                 ),
                 React.createElement('div', { className: "h-2 bg-slate-100 rounded-full overflow-hidden mb-3" },
@@ -312,12 +356,12 @@
             const [month, setMonth] = useState(UTILS.toMonthKey(new Date()));
             const { data, totals, config, actions } = useFinance(user, month);
 
-            if (loading) return React.createElement('div', { className: "h-screen flex items-center justify-center font-black text-indigo-600 animate-pulse uppercase" }, "Cargando Panel...");
+            if (loading) return React.createElement('div', { className: "h-screen flex items-center justify-center font-black text-indigo-600 animate-pulse uppercase" }, "Conectando...");
 
             return React.createElement('div', { className: "max-w-md mx-auto p-4 pb-28 min-h-screen" },
                 React.createElement('header', { className: "flex justify-between items-center py-6" },
                     React.createElement('h1', { className: "text-2xl font-black text-slate-900 uppercase tracking-tighter" }, "Finanzas Pro"),
-                    React.createElement('button', { onClick: () => signOut(auth), className: "text-[9px] font-black text-slate-400 bg-slate-100 px-3 py-1 rounded-full uppercase" }, "Salir")
+                    React.createElement('button', { onClick: () => signOut(auth), className: "text-[9px] font-black text-slate-400 bg-slate-100 px-3 py-1 rounded-full uppercase" }, "Cerrar")
                 ),
 
                 React.createElement('select', { 
@@ -362,4 +406,4 @@
         ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
     </script>
 </body>
-</html>       
+</html>
